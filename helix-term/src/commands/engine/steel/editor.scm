@@ -166,6 +166,17 @@
 ;;
 (define themes->list helix.themes->list)
 
+(provide editor-views)
+;;@doc
+;;
+;;Get a list of all of the view ids that are currently open.
+;;
+;;```scheme
+;;(editor-views) -> (listof ViewId?)
+;;```
+;;
+(define editor-views helix.editor-views)
+
 (provide editor-all-documents)
 ;;@doc
 ;;

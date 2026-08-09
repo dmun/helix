@@ -1431,6 +1431,10 @@ fn current_buffer_area(cx: &mut Context) -> Option<helix_view::graphics::Rect> {
     cx.editor.tree.view_id_area(focus)
 }
 
+fn editor_views(cx: &mut Context) -> Vec<ViewId> {
+    cx.editor.tree.traverse().map(|(id, _)| id).collect()
+}
+
 fn load_editor_api(engine: &mut Engine, generate_sources: bool) {
     let mut module = BuiltInModule::new("helix/core/editor");
 
@@ -1447,6 +1451,7 @@ fn load_editor_api(engine: &mut Engine, generate_sources: bool) {
     module
         .register_fn_with_ctx(CTX, "editor-focus", cx_current_focus)
         .register_fn_with_ctx(CTX, "editor-mode", cx_get_mode)
+        .register_fn_with_ctx(CTX, "editor-views", editor_views)
         .register_fn_with_ctx(CTX, "cx->themes", get_themes)
         .register_fn_with_ctx(CTX, "editor-count", |cx: &mut Context| {
             cx.editor.count.map(|x| x.get()).unwrap_or(1)
