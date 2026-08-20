@@ -43,6 +43,13 @@
 ;;Replace the existing selection with the given string
 (define replace-selection-with helix.static.replace-selection-with)
 
+(provide apply-edits!)
+;;@doc
+;;Apply text to the document as one transaction of localized changes. When a
+;;range is provided, the text replaces that range instead of the whole document.
+(define (apply-edits! text . range)
+  (helix.static.apply-edits! text range))
+
 (provide enqueue-expression-in-engine)
 ;;@doc
 ;;Enqueue an expression to run at the top level context,

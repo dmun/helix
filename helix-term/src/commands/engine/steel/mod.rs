@@ -17,8 +17,8 @@ use helix_core::{
         },
         LanguageLoader,
     },
+    Range, Rope, Selection, Tendril, Transaction,
     text_annotations::InlineAnnotation,
-    Range, Selection, Tendril, Transaction,
 };
 use helix_event::register_hook;
 use helix_lsp::jsonrpc;
@@ -657,6 +657,7 @@ fn load_static_commands(engine: &mut Engine, generate_sources: bool) {
         )
         .register_fn_with_ctx(CTX, "regex-selection", regex_selection)
         .register_fn_with_ctx(CTX, "replace-selection-with", replace_selection)
+        .register_fn_with_ctx(CTX, "apply-edits!", apply_edits)
         .register_fn_with_ctx(
             CTX,
             "enqueue-expression-in-engine",
@@ -5324,6 +5325,30 @@ fn replace_selection(cx: &mut Context, value: String) {
         });
 
     doc.apply(&transaction, view.id);
+}
+
+fn apply_edits(cx: &mut Context, text: SteelString, ranges: Vec<Range>) -> anyhow::Result<()> {
+    let range = match ranges.as_slice() {
+        [] => None,
+        [range] => Some(*range),
+        _ => anyhow::bail!("apply-edits! accepts at most one range"),
+    };
+
+    let (view, doc) = current!(cx.editor);
+    let mut new_text = doc.text().clone();
+    if let Some(range) = range {
+        if range.to() > new_text.len_chars() {
+            anyhow::bail!("range extends past the end of the document");
+        }
+        new_text.remove(range.from()..range.to());
+        new_text.insert(range.from(), text.as_str());
+    } else {
+        new_text = Rope::from(text.as_str());
+    }
+
+    let transaction = helix_core::diff::compare_ropes(doc.text(), &new_text);
+    doc.apply(&transaction, view.id);
+    Ok(())
 }
 
 // TODO: Remove this!
