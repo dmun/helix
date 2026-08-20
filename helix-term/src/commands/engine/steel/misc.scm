@@ -320,6 +320,21 @@
 ;;
 (define remove-inlay-hint-by-id helix.remove-inlay-hint-by-id)
 
+(provide set-jump-labels)
+;;@doc
+;;
+;;Sets jump labels for the focused view.
+;;
+;;```scheme
+;;(set-jump-labels view-id labels)
+;;```
+;;
+;;view-id : ViewId
+;;labels : (listof (list char-index string?))
+;;char-index : int?
+;;
+(define set-jump-labels helix.set-jump-labels)
+
 (provide fuzzy-match)
 ;;@doc
 ;; Convenience function to easily fuzzy match

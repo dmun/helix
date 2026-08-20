@@ -17,8 +17,8 @@ use helix_core::{
         },
         LanguageLoader,
     },
+    text_annotations::{InlineAnnotation, Overlay},
     Range, Rope, Selection, Tendril, Transaction,
-    text_annotations::InlineAnnotation,
 };
 use helix_event::register_hook;
 use helix_lsp::jsonrpc;
@@ -1432,6 +1432,10 @@ fn current_buffer_area(cx: &mut Context) -> Option<helix_view::graphics::Rect> {
     cx.editor.tree.view_id_area(focus)
 }
 
+fn editor_views(cx: &mut Context) -> Vec<ViewId> {
+    cx.editor.tree.traverse().map(|(id, _)| id).collect()
+}
+
 fn load_editor_api(engine: &mut Engine, generate_sources: bool) {
     let mut module = BuiltInModule::new("helix/core/editor");
 
@@ -1448,6 +1452,7 @@ fn load_editor_api(engine: &mut Engine, generate_sources: bool) {
     module
         .register_fn_with_ctx(CTX, "editor-focus", cx_current_focus)
         .register_fn_with_ctx(CTX, "editor-mode", cx_get_mode)
+        .register_fn_with_ctx(CTX, "editor-views", editor_views)
         .register_fn_with_ctx(CTX, "cx->themes", get_themes)
         .register_fn_with_ctx(CTX, "editor-count", |cx: &mut Context| {
             cx.editor.count.map(|x| x.get()).unwrap_or(1)
@@ -4069,6 +4074,8 @@ fn load_misc_api(engine: &mut Engine, generate_sources: bool) {
         .register_fn_with_ctx(CTX, "add-inlay-hint", add_inlay_hint)
         .register_fn_with_ctx(CTX, "remove-inlay-hint", remove_inlay_hint)
         .register_fn_with_ctx(CTX, "remove-inlay-hint-by-id", remove_inlay_hint_by_id)
+        .register_fn_with_ctx(CTX, "set-jump-labels", set_jump_labels)
+        .register_fn_with_ctx(CTX, "remove-jump-labels", remove_jump_labels)
         .register_fn("fuzzy-match", fuzzy_match);
 
     if generate_sources {
@@ -5658,6 +5665,31 @@ pub fn remove_inlay_hint(cx: &mut Context, char_index: usize, _completion: Steel
         .retain(|x| x.char_idx != char_index);
     doc.set_inlay_hints(view_id, new_inlay_hints);
     true
+}
+
+// "set-jump-labels",
+pub fn set_jump_labels(cx: &mut Context, view_id: ViewId, labels: Vec<(usize, SteelString)>) {
+    let doc_id = cx_get_document_id(cx, view_id);
+    let Some(doc) = cx.editor.documents.get_mut(&doc_id) else {
+        return;
+    };
+
+    let mut overlays: Vec<Overlay> = labels
+        .into_iter()
+        .map(|(char_idx, label)| Overlay::new(char_idx, label.as_str()))
+        .collect();
+
+    overlays.sort_unstable_by_key(|overlay| overlay.char_idx);
+    doc.set_jump_labels(view_id, overlays);
+}
+
+// "remove-jump-labels",
+pub fn remove_jump_labels(cx: &mut Context, view_id: ViewId) {
+    let doc_id = cx_get_document_id(cx, view_id);
+    let Some(doc) = cx.editor.documents.get_mut(&doc_id) else {
+        return;
+    };
+    doc.remove_jump_labels(view_id);
 }
 
 pub fn insert_string(cx: &mut Context, string: SteelString) {
