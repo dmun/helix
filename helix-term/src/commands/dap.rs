@@ -2,7 +2,7 @@ use super::{Context, Editor};
 use crate::{
     compositor::{self, Compositor},
     job::{Callback, Jobs},
-    ui::{self, overlay::overlaid, Picker, Popup, Prompt, PromptEvent, Text},
+    ui::{self, Picker, Popup, Prompt, PromptEvent, Text},
 };
 use dap::{StackFrame, Thread, ThreadStates};
 use helix_core::syntax::config::{DebugConfigCompletion, DebugTemplate};
@@ -72,7 +72,7 @@ fn thread_picker(
                 ));
                 Some((path.into(), pos))
             });
-            compositor.push(Box::new(picker));
+            compositor.push(Box::new(ui::minibuffer(picker)));
         },
     );
 }
@@ -270,7 +270,7 @@ pub fn dap_launch(cx: &mut Context) {
         |item: &DebugTemplate, _| item.name.as_str().into(),
     )];
 
-    cx.push_layer(Box::new(overlaid(Picker::new(
+    cx.push_layer(Box::new(ui::minibuffer(Picker::new(
         columns,
         0,
         templates,
@@ -790,5 +790,5 @@ pub fn dap_switch_stack_frame(cx: &mut Context) {
             })
         })
     });
-    cx.push_layer(Box::new(picker))
+    cx.push_layer(Box::new(ui::minibuffer(picker)))
 }

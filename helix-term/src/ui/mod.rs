@@ -38,6 +38,14 @@ use tui::text::{Span, Spans};
 use std::path::Path;
 use std::{error::Error, path::PathBuf};
 
+pub fn minibuffer<I, D>(picker: Picker<I, D>) -> overlay::BottomDock<Picker<I, D>>
+where
+    I: 'static + Send + Sync,
+    D: 'static + Send + Sync,
+{
+    overlay::bottom_docked(picker.with_minibuffer_layout())
+}
+
 struct Utf8PathBuf {
     path: String,
     is_dir: bool,
@@ -343,7 +351,7 @@ pub fn file_explorer(root: PathBuf, editor: &Editor) -> Result<FileExplorer, std
                     let call: Callback =
                         Callback::EditorCompositor(Box::new(move |editor, compositor| {
                             if let Ok(picker) = file_explorer(new_root, editor) {
-                                compositor.push(Box::new(overlay::overlaid(picker)));
+                                compositor.push(Box::new(minibuffer(picker)));
                             }
                         }));
                     Ok(call)

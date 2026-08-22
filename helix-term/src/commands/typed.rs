@@ -158,7 +158,7 @@ fn open_impl(cx: &mut compositor::Context, args: Args, action: Action) -> anyhow
                     move |editor: &mut Editor, compositor: &mut Compositor| {
                         let picker =
                             ui::file_picker(editor, path.into_owned()).with_default_action(action);
-                        compositor.push(Box::new(overlaid(picker)));
+                        compositor.push(Box::new(ui::minibuffer(picker)));
                     },
                 ));
                 Ok(call)
@@ -1752,7 +1752,7 @@ fn lsp_workspace_command(
                             cx.editor.execute_lsp_command(command.clone(), *ls_id);
                         },
                     );
-                    compositor.push(Box::new(overlaid(picker)))
+                    compositor.push(Box::new(ui::minibuffer(picker)))
                 },
             ));
             Ok(call)

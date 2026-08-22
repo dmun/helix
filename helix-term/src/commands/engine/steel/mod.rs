@@ -17,8 +17,8 @@ use helix_core::{
         },
         LanguageLoader,
     },
-    text_annotations::InlineAnnotation,
-    Range, Selection, Tendril, Transaction,
+    text_annotations::{InlineAnnotation, Overlay},
+    Range, Rope, Selection, Tendril, Transaction,
 };
 use helix_event::register_hook;
 use helix_lsp::jsonrpc;
@@ -4407,7 +4407,7 @@ fn configure_engine_impl(mut engine: Engine) -> Engine {
         }
 
         WrappedDynComponent {
-            inner: Some(Box::new(ui::overlay::overlaid(picker))),
+            inner: Some(Box::new(ui::minibuffer(picker))),
         }
     });
 
@@ -4467,7 +4467,7 @@ fn configure_engine_impl(mut engine: Engine) -> Engine {
             }
 
             WrappedDynComponent {
-                inner: Some(Box::new(ui::overlay::overlaid(picker))),
+                inner: Some(Box::new(ui::minibuffer(picker))),
             }
         },
     );

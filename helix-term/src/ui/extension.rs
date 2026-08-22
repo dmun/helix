@@ -3,7 +3,10 @@ mod steel_implementations {
 
     use crate::{
         compositor::Component,
-        ui::{overlay::Overlay, Popup, Prompt, Text},
+        ui::{
+            overlay::{BottomDock, Overlay},
+            Popup, Prompt, Text,
+        },
     };
 
     impl steel::rvals::Custom for Text {}
@@ -14,6 +17,8 @@ mod steel_implementations {
     // and something I'll look into with steel.
     unsafe impl<T> Send for Overlay<T> {}
     unsafe impl<T> Sync for Overlay<T> {}
+    unsafe impl<T> Send for BottomDock<T> {}
+    unsafe impl<T> Sync for BottomDock<T> {}
     unsafe impl Send for Prompt {}
     unsafe impl Sync for Prompt {}
 }

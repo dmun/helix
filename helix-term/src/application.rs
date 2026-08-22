@@ -28,7 +28,7 @@ use crate::{
     handlers,
     job::Jobs,
     keymap::Keymaps,
-    ui::{self, overlay::overlaid},
+    ui,
 };
 
 use log::{debug, error, info, warn};
@@ -174,7 +174,7 @@ impl Application {
             // If the first file is a directory, skip it and open a picker
             if let Some((first, _)) = files_it.next_if(|(p, _)| p.is_dir()) {
                 let picker = ui::file_picker(&editor, first);
-                compositor.push(Box::new(overlaid(picker)));
+                compositor.push(Box::new(ui::minibuffer(picker)));
             }
 
             // If there are any more files specified, open them

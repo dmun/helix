@@ -269,6 +269,44 @@ pub struct Picker<T: 'static + Send + Sync, D: 'static> {
     /// An event handler for syntax highlighting the currently previewed file.
     preview_highlight_handler: Sender<Arc<Path>>,
     dynamic_query_handler: Option<Sender<DynamicQueryChange>>,
+    layout: PickerLayout,
+}
+
+#[derive(Clone, Copy, Default)]
+enum PickerLayout {
+    #[default]
+    Popup,
+    Minibuffer,
+}
+
+impl PickerLayout {
+    fn prompt_area(self, inner: Rect) -> Rect {
+        match self {
+            Self::Popup => inner.with_height(1),
+            Self::Minibuffer => inner.with_height(1),
+        }
+    }
+
+    fn entries_area(self, inner: Rect) -> Rect {
+        match self {
+            Self::Popup => inner.clip_top(2),
+            Self::Minibuffer => inner.clip_top(1),
+        }
+    }
+
+    fn separator_y(self, inner: Rect) -> Option<u16> {
+        match self {
+            Self::Popup => Some(inner.y.saturating_add(1)),
+            Self::Minibuffer => None,
+        }
+    }
+
+    fn chrome_height(self) -> u16 {
+        match self {
+            Self::Popup => 4,
+            Self::Minibuffer => 1,
+        }
+    }
 }
 
 impl<T: 'static + Send + Sync, D: 'static + Send + Sync> Picker<T, D> {
@@ -394,7 +432,13 @@ impl<T: 'static + Send + Sync, D: 'static + Send + Sync> Picker<T, D> {
             file_fn: None,
             preview_highlight_handler: PreviewHighlightHandler::<T, D>::default().spawn(),
             dynamic_query_handler: None,
+            layout: PickerLayout::default(),
         }
+    }
+
+    pub(crate) fn with_minibuffer_layout(mut self) -> Self {
+        self.layout = PickerLayout::Minibuffer;
+        self
     }
 
     pub fn injector(&self) -> Injector<T, D> {
@@ -517,6 +561,13 @@ impl<T: 'static + Send + Sync, D: 'static + Send + Sync> Picker<T, D> {
             1
         } else {
             0
+        }
+    }
+
+    fn block(&self) -> Block<'static> {
+        match self.layout {
+            PickerLayout::Popup => Block::bordered(),
+            PickerLayout::Minibuffer => Block::new(),
         }
     }
 
@@ -680,7 +731,13 @@ impl<T: 'static + Send + Sync, D: 'static + Send + Sync> Picker<T, D> {
         }
     }
 
-    fn render_picker(&mut self, area: Rect, surface: &mut Surface, cx: &mut Context) {
+    fn render_picker(
+        &mut self,
+        area: Rect,
+        chrome_area: Rect,
+        surface: &mut Surface,
+        cx: &mut Context,
+    ) {
         let status = self.matcher.tick(10);
         let snapshot = self.matcher.snapshot();
         if status.changed {
@@ -698,12 +755,13 @@ impl<T: 'static + Send + Sync, D: 'static + Send + Sync> Picker<T, D> {
         let background = cx.editor.theme.get("ui.background");
         surface.clear_with(area, background);
 
-        const BLOCK: Block<'_> = Block::bordered();
+        let block = self.block();
 
         // calculate the inner area inside the box
-        let inner = BLOCK.inner(area);
+        let inner = block.inner(area);
+        let chrome_inner = block.inner(chrome_area);
 
-        BLOCK.render(area, surface);
+        block.render(area, surface);
 
         // -- Render the input bar:
 
@@ -718,7 +776,11 @@ impl<T: 'static + Send + Sync, D: 'static + Send + Sync> Picker<T, D> {
             snapshot.item_count(),
         );
 
-        let area = inner.clip_left(1).with_height(1);
+        let area = self
+            .layout
+            .prompt_area(chrome_inner)
+            .clip_left(1)
+            .with_height(1);
         let line_area = area.clip_right(count.len() as u16 + 1);
 
         // render the prompt first since it will clear its background
@@ -735,15 +797,16 @@ impl<T: 'static + Send + Sync, D: 'static + Send + Sync> Picker<T, D> {
         // -- Separator
         let sep_style = cx.editor.theme.get("ui.background.separator");
         let borders = BorderType::line_symbols(BorderType::Plain);
-        for x in inner.left()..inner.right() {
-            if let Some(cell) = surface.get_mut(x, inner.y + 1) {
-                cell.set_symbol(borders.horizontal).set_style(sep_style);
+        if let Some(separator_y) = self.layout.separator_y(chrome_inner) {
+            for x in chrome_inner.left()..chrome_inner.right() {
+                if let Some(cell) = surface.get_mut(x, separator_y) {
+                    cell.set_symbol(borders.horizontal).set_style(sep_style);
+                }
             }
         }
 
-        // -- Render the contents:
-        // subtract area of prompt from top
-        let inner = inner.clip_top(2);
+        // -- Render the contents, opposite the prompt:
+        let inner = self.layout.entries_area(inner);
         let rows = inner.height.saturating_sub(self.header_height()) as u32;
         let offset = self.cursor - (self.cursor % std::cmp::max(1, rows));
         let cursor = self.cursor.saturating_sub(offset);
@@ -887,14 +950,14 @@ impl<T: 'static + Send + Sync, D: 'static + Send + Sync> Picker<T, D> {
         let directory = cx.editor.theme.get("ui.text.directory");
         surface.clear_with(area, background);
 
-        const BLOCK: Block<'_> = Block::bordered();
+        let block = self.block();
 
         // calculate the inner area inside the box
-        let inner = BLOCK.inner(area);
+        let inner = block.inner(area);
         // 1 column gap on either side
         let margin = Margin::horizontal(1);
         let inner = inner.inner(margin);
-        BLOCK.render(area, surface);
+        block.render(area, surface);
 
         if let Some((preview, range)) = self.get_preview(cx.editor) {
             let doc = match preview.document() {
@@ -1025,10 +1088,11 @@ impl<T: 'static + Send + Sync, D: 'static + Send + Sync> Picker<T, D> {
 
 impl<I: 'static + Send + Sync, D: 'static + Send + Sync> Component for Picker<I, D> {
     fn render(&mut self, area: Rect, surface: &mut Surface, cx: &mut Context) {
-        // +---------+ +---------+
-        // |prompt   | |preview  |
-        // +---------+ |         |
-        // |picker   | |         |
+        // Popup layout:                 Minibuffer layout:
+        // +---------+ +---------+       |prompt             |
+        // |prompt   | |preview  |       |picker   |preview  |
+        // +---------+ |         |       |         |         |
+        // |picker   | |         |       |         |         |
         // |         | |         |
         // +---------+ +---------+
 
@@ -1042,11 +1106,18 @@ impl<I: 'static + Send + Sync, D: 'static + Send + Sync> Component for Picker<I,
         };
 
         let picker_area = area.with_width(picker_width);
-        self.render_picker(picker_area, surface, cx);
-
-        if render_preview {
+        if render_preview && matches!(self.layout, PickerLayout::Minibuffer) {
+            // Draw the preview first so the full-width query can occupy the
+            // first row of the dock.
             let preview_area = area.clip_left(picker_width);
             self.render_preview(preview_area, surface, cx);
+            self.render_picker(picker_area, area, surface, cx);
+        } else {
+            self.render_picker(picker_area, picker_area, surface, cx);
+            if render_preview {
+                let preview_area = area.clip_left(picker_width);
+                self.render_preview(preview_area, surface, cx);
+            }
         }
     }
 
@@ -1170,7 +1241,7 @@ impl<I: 'static + Send + Sync, D: 'static + Send + Sync> Component for Picker<I,
     }
 
     fn cursor(&self, area: Rect, editor: &Editor) -> (Option<Position>, CursorKind) {
-        let block = Block::bordered();
+        let block = self.block();
         // calculate the inner area inside the box
         let inner = block.inner(area);
 
@@ -1183,13 +1254,21 @@ impl<I: 'static + Send + Sync, D: 'static + Send + Sync> Component for Picker<I,
         } else {
             area.width
         };
-        let area = inner.clip_left(1).with_height(1).with_width(picker_width);
+        let area = self.layout.prompt_area(inner).clip_left(1).with_height(1);
+        let area = match self.layout {
+            PickerLayout::Popup => area.with_width(picker_width),
+            PickerLayout::Minibuffer => area,
+        };
 
         self.prompt.cursor(area, editor)
     }
 
     fn required_size(&mut self, (width, height): (u16, u16)) -> Option<(u16, u16)> {
-        self.completion_height = height.saturating_sub(4 + self.header_height());
+        self.completion_height = height.saturating_sub(
+            self.layout
+                .chrome_height()
+                .saturating_add(self.header_height()),
+        );
         Some((width, height))
     }
 
@@ -1205,3 +1284,24 @@ impl<T: 'static + Send + Sync, D> Drop for Picker<T, D> {
 }
 
 type PickerCallback<T> = Box<dyn Fn(&mut Context, &T, Action)>;
+
+#[cfg(test)]
+mod tests {
+    use super::PickerLayout;
+    use helix_view::graphics::Rect;
+
+    #[test]
+    fn minibuffer_layout_places_the_query_on_the_first_row_without_a_separator() {
+        let inner = Rect::new(0, 25, 100, 15);
+
+        assert_eq!(
+            PickerLayout::Minibuffer.prompt_area(inner),
+            Rect::new(0, 25, 100, 1)
+        );
+        assert_eq!(
+            PickerLayout::Minibuffer.entries_area(inner),
+            Rect::new(0, 26, 100, 14)
+        );
+        assert_eq!(PickerLayout::Minibuffer.separator_y(inner), None);
+    }
+}

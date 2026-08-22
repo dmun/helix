@@ -7,9 +7,27 @@ use std::{
 use helix_event::AsyncHook;
 use tokio::time::Instant;
 
-use crate::{job, ui::overlay::Overlay};
+use crate::{
+    compositor::Compositor,
+    job,
+    ui::overlay::{BottomDock, Overlay},
+};
 
 use super::{CachedPreview, DynQueryCallback, Picker};
+
+fn find_picker<T: 'static + Send + Sync, D: 'static + Send + Sync>(
+    compositor: &mut Compositor,
+) -> Option<&mut Picker<T, D>> {
+    if compositor.has_component(std::any::type_name::<BottomDock<Picker<T, D>>>()) {
+        return compositor
+            .find::<BottomDock<Picker<T, D>>>()
+            .map(|dock| &mut dock.content);
+    }
+
+    compositor
+        .find::<Overlay<Picker<T, D>>>()
+        .map(|overlay| &mut overlay.content)
+}
 
 pub(super) struct PreviewHighlightHandler<T: 'static + Send + Sync, D: 'static + Send + Sync> {
     trigger: Option<Arc<Path>>,
@@ -54,10 +72,7 @@ impl<T: 'static + Send + Sync, D: 'static + Send + Sync> AsyncHook
         };
 
         job::dispatch_blocking(move |editor, compositor| {
-            let Some(Overlay {
-                content: picker, ..
-            }) = compositor.find::<Overlay<Picker<T, D>>>()
-            else {
+            let Some(picker) = find_picker::<T, D>(compositor) else {
                 return;
             };
 
@@ -87,10 +102,7 @@ impl<T: 'static + Send + Sync, D: 'static + Send + Sync> AsyncHook
                 };
 
                 job::dispatch_blocking(move |editor, compositor| {
-                    let Some(Overlay {
-                        content: picker, ..
-                    }) = compositor.find::<Overlay<Picker<T, D>>>()
-                    else {
+                    let Some(picker) = find_picker::<T, D>(compositor) else {
                         log::info!("picker closed before syntax highlighting finished");
                         return;
                     };
@@ -167,10 +179,7 @@ impl<T: 'static + Send + Sync, D: 'static + Send + Sync> AsyncHook for DynamicQu
         let callback = self.callback.clone();
 
         job::dispatch_blocking(move |editor, compositor| {
-            let Some(Overlay {
-                content: picker, ..
-            }) = compositor.find::<Overlay<Picker<T, D>>>()
-            else {
+            let Some(picker) = find_picker::<T, D>(compositor) else {
                 return;
             };
             // Increment the version number to cancel any ongoing requests.

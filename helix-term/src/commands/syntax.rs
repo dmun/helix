@@ -27,7 +27,7 @@ use ignore::{DirEntry, WalkBuilder, WalkState};
 use crate::{
     filter_picker_entry,
     ui::{
-        overlay::overlaid,
+        self,
         picker::{Injector, PathOrId},
         Picker, PickerColumn,
     },
@@ -216,7 +216,7 @@ pub fn syntax_symbol_picker(cx: &mut Context) {
     })
     .truncate_start(false);
 
-    cx.push_layer(Box::new(overlaid(picker)));
+    cx.push_layer(Box::new(ui::minibuffer(picker)));
 }
 
 pub fn syntax_workspace_symbol_picker(cx: &mut Context) {
@@ -462,7 +462,7 @@ pub fn syntax_workspace_symbol_picker(cx: &mut Context) {
     })
     .with_history_register(Some(reg))
     .truncate_start(false);
-    cx.push_layer(Box::new(overlaid(picker)));
+    cx.push_layer(Box::new(ui::minibuffer(picker)));
 }
 
 /// Create a Rope and language config for a given existing path without creating a full Document.
