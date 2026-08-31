@@ -45,6 +45,11 @@ pub struct CodeActionHintEvent {
     pub view_id: ViewId,
 }
 
+pub struct DocumentHighlightEvent {
+    pub document_id: DocumentId,
+    pub view_id: ViewId,
+}
+
 #[derive(Debug)]
 pub struct ApplyEditError {
     pub kind: ApplyEditErrorKind,
