@@ -4,7 +4,10 @@ use ropey::iter::Chars;
 
 use crate::{
     char_idx_at_visual_offset,
-    chars::{categorize_char, char_is_line_ending, CharCategory, WordChars},
+    chars::{
+        categorize_char, char_is_line_ending, char_is_whitespace, CharCategory, WordChars,
+        DEFAULT_WORD_CHARS,
+    },
     doc_formatter::TextFormat,
     graphemes::{
         next_grapheme_boundary, nth_next_grapheme_boundary, nth_prev_grapheme_boundary,
@@ -219,6 +222,119 @@ pub fn move_prev_word_end(
         count,
         WordMotionTarget::PrevWordEnd(word_chars),
     )
+}
+
+pub fn move_next_word_meow(
+    slice: RopeSlice,
+    range: Range,
+    count: usize,
+    word_chars: &WordChars,
+) -> Range {
+    meow_word_move(slice, range, count, word_chars, Direction::Forward)
+}
+
+pub fn move_prev_word_meow(
+    slice: RopeSlice,
+    range: Range,
+    count: usize,
+    word_chars: &WordChars,
+) -> Range {
+    meow_word_move(slice, range, count, word_chars, Direction::Backward)
+}
+
+pub fn move_next_sub_word_meow(slice: RopeSlice, range: Range, count: usize) -> Range {
+    meow_word_move(slice, range, count, &DEFAULT_WORD_CHARS, Direction::Forward)
+}
+
+pub fn move_prev_sub_word_meow(slice: RopeSlice, range: Range, count: usize) -> Range {
+    meow_word_move(
+        slice,
+        range,
+        count,
+        &DEFAULT_WORD_CHARS,
+        Direction::Backward,
+    )
+}
+
+fn meow_word_move(
+    slice: RopeSlice,
+    mut range: Range,
+    count: usize,
+    word_chars: &WordChars,
+    direction: Direction,
+) -> Range {
+    for _ in 0..count {
+        let cursor = range.cursor(slice);
+        let Some((word_start, word_end)) = find_meow_word(slice, cursor, word_chars, direction)
+        else {
+            break;
+        };
+
+        range = match direction {
+            Direction::Forward => {
+                let mut selection_start = word_start;
+                while selection_start > range.to() {
+                    let ch = slice.char(selection_start - 1);
+                    if word_chars.is_word(ch) || char_is_whitespace(ch) {
+                        selection_start -= 1;
+                    } else {
+                        break;
+                    }
+                }
+                Range::new(selection_start, word_end)
+            }
+            Direction::Backward => {
+                let mut selection_end = word_end;
+                while selection_end < range.from() {
+                    let ch = slice.char(selection_end);
+                    if word_chars.is_word(ch) || char_is_whitespace(ch) {
+                        selection_end += 1;
+                    } else {
+                        break;
+                    }
+                }
+                Range::new(selection_end, word_start)
+            }
+        };
+    }
+
+    range
+}
+
+fn find_meow_word(
+    slice: RopeSlice,
+    cursor: usize,
+    word_chars: &WordChars,
+    direction: Direction,
+) -> Option<(usize, usize)> {
+    let mut pos = cursor;
+    match direction {
+        Direction::Forward => {
+            pos += 1;
+            while pos < slice.len_chars() && !word_chars.is_word(slice.char(pos)) {
+                pos += 1;
+            }
+            if pos >= slice.len_chars() {
+                return None;
+            }
+        }
+        Direction::Backward => loop {
+            pos = pos.checked_sub(1)?;
+            if word_chars.is_word(slice.char(pos)) {
+                break;
+            }
+        },
+    }
+
+    let mut start = pos;
+    while start > 0 && word_chars.is_word(slice.char(start - 1)) {
+        start -= 1;
+    }
+    let mut end = pos + 1;
+    while end < slice.len_chars() && word_chars.is_word(slice.char(end)) {
+        end += 1;
+    }
+    Some((start, end))
 }
 
 pub fn move_next_long_word_start(slice: RopeSlice, range: Range, count: usize) -> Range {

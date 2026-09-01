@@ -322,6 +322,10 @@ impl MappableCommand {
         move_prev_word_start, "Move to start of previous word",
         move_next_word_end, "Move to end of next word",
         move_prev_word_end, "Move to end of previous word",
+        move_next_word_meow, "Select next word, Meow-style",
+        move_prev_word_meow, "Select previous word, Meow-style",
+        move_next_sub_word_meow, "Select next word, Meow-style",
+        move_prev_sub_word_meow, "Select previous word, Meow-style",
         move_next_long_word_start, "Move to start of next long word",
         move_prev_long_word_start, "Move to start of previous long word",
         move_next_long_word_end, "Move to end of next long word",
@@ -1252,6 +1256,22 @@ fn move_prev_word_end(cx: &mut Context) {
 
 fn move_next_word_end(cx: &mut Context) {
     move_language_word_impl(cx, movement::move_next_word_end, Movement::Move)
+}
+
+fn move_next_word_meow(cx: &mut Context) {
+    move_language_word_impl(cx, movement::move_next_word_meow, Movement::Move)
+}
+
+fn move_prev_word_meow(cx: &mut Context) {
+    move_language_word_impl(cx, movement::move_prev_word_meow, Movement::Move)
+}
+
+fn move_next_sub_word_meow(cx: &mut Context) {
+    move_word_impl(cx, movement::move_next_sub_word_meow, Movement::Move)
+}
+
+fn move_prev_sub_word_meow(cx: &mut Context) {
+    move_word_impl(cx, movement::move_prev_sub_word_meow, Movement::Move)
 }
 
 fn move_next_long_word_start(cx: &mut Context) {
