@@ -8,6 +8,7 @@ use crate::config::Config;
 use crate::events;
 use crate::handlers::auto_save::AutoSaveHandler;
 use crate::handlers::diagnostics::PullDiagnosticsHandler;
+use crate::handlers::document_highlight::DocumentHighlightHandler;
 use crate::handlers::signature_help::SignatureHelpHandler;
 
 pub use helix_view::handlers::{word_index, Handlers};
@@ -35,6 +36,7 @@ pub fn setup(config: Arc<ArcSwap<Config>>) -> Handlers {
     let auto_save = AutoSaveHandler::new().spawn();
     let code_action_hint = code_action_hint::Handler::default().spawn();
     let document_colors = DocumentColorsHandler::default().spawn();
+    let document_highlight = DocumentHighlightHandler::default().spawn();
     let document_links = DocumentLinksHandler::default().spawn();
     let word_index = word_index::Handler::spawn();
     let pull_diagnostics = PullDiagnosticsHandler::default().spawn();
@@ -45,6 +47,7 @@ pub fn setup(config: Arc<ArcSwap<Config>>) -> Handlers {
         signature_hints,
         auto_save,
         document_colors,
+        document_highlight,
         document_links,
         word_index,
         pull_diagnostics,
